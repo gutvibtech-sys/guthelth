@@ -25,6 +25,11 @@ from skin_color_analysis import (
     analyze_and_store_skin_color,
     load_latest_skin_color_measurements,
 )
+from doctor_referral import (
+    render_consult_doctor_button,
+    render_doctor_dashboard,
+    render_hospital_admin_dashboard,
+)
 
 # ─── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -630,7 +635,7 @@ st.sidebar.markdown("""
 
 page = st.sidebar.radio(
     "Navigation",
-    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🔍 View / Search", "📊 Analytics", "📁 All Reports"],
+    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🔍 View / Search", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -860,6 +865,9 @@ elif page == "📋 Add Patient":
             for col, (label, val, unit) in zip(cols, metrics):
                 col.metric(label, f"{val} {unit}")
 
+            st.markdown("### Wellness Report Follow-up")
+            render_consult_doctor_button(record)
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — FACE SCAN CAPTURE
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1074,6 +1082,18 @@ elif page == "🔍 View / Search":
                 st.write("**Sleep Score:**",row.get("sleep_score"))
                 st.write("**HRV:**",        row.get("hrv"), "ms")
                 st.write("**ICMR Risk:**",  row.get("icmr_risk_score"))
+
+        st.markdown("### Wellness Report Follow-up")
+        render_consult_doctor_button(row)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# DOCTOR REFERRAL DASHBOARDS
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "🩺 Doctor Dashboard":
+    render_doctor_dashboard()
+
+elif page == "🏥 Hospital Admin":
+    render_hospital_admin_dashboard()
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — ANALYTICS
