@@ -141,3 +141,16 @@ The new `voice_assistant.py` module adds a standalone, provider-agnostic convers
 - Guides users through consent, registration, face scan, height and weight measurement, wellness report preparation, doctor referral, and completion.
 - Defines modular Speech-to-Text, Text-to-Speech, and conversation provider interfaces so future AI vendors can be plugged in later.
 - Keeps conversation state separate from medical analysis data and stores only session/workflow metadata.
+
+## Phase 7: WhatsApp CRM & Wellness Follow-up
+
+The provider-neutral `whatsapp_crm.py` module adds consent-controlled WhatsApp engagement:
+
+- Sends a wellness summary, PDF report, and QR download link when a kiosk assessment finishes.
+- Schedules daily, weekly, Food as Medicine, and appointment follow-ups, including recurring dispatch.
+- Continues kiosk conversations with safe wellness guidance in Malayalam, English, Tamil, and Hindi.
+- Notifies configured doctors of referrals and lets doctors send patient follow-up messages.
+- Provides an admin CRM dashboard for communication history, campaign drafts, follow-up schedules, and delivery analytics.
+- Uses a `MessagingProvider` protocol; the default sandbox adapter performs no network calls and can be replaced by Meta, Twilio, or another approved provider.
+
+Set `GUTVIBE_PUBLIC_URL` to the public report service base URL. Doctor notification destinations can be configured with `GUTVIBE_DOCTOR_PHONE_<DOCTOR_ID>` (for example, `GUTVIBE_DOCTOR_PHONE_DOC-GV-001`). Production deployments must replace the sandbox provider, use approved WhatsApp templates where required, authenticate webhook events, and retain auditable consent.
