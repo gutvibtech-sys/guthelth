@@ -29,3 +29,6 @@ patient_reports/
 .DS_Store
 Thumbs.db
 .vscode/
+gutvibe_patients.db
+gutvibe_patients.db-shm
+gutvibe_patients.db-wal
