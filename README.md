@@ -10,6 +10,7 @@ A Streamlit application for registering patients, recording patient health metri
 - Add patient demographic, body metric, lab result, and wellness-score data.
 - Generate branded PDF reports with patient details, biomarker summaries, wellness metrics, and a QR-code summary.
 - Search existing records by patient name or patient ID.
+- Capture a patient face image, validate that exactly one face is present, and store it without AI analysis.
 - View population-level summary statistics.
 - Download all patient data as CSV.
 - Generate individual reports or a ZIP archive of all reports.
@@ -34,6 +35,7 @@ The application currently uses the following runtime paths:
 - `gutvibe_patients.db` — local SQLite database used for patient registration and records.
 - `patients_data.csv` — legacy local CSV data store imported automatically when present.
 - `patient_reports/` — local folder created by the app for generated PDF reports.
+- `face_scans/` — local folder created by the app for captured face images.
 
 Both paths can contain sensitive patient information and are intentionally ignored by Git.
 
@@ -88,6 +90,7 @@ The following files and directories are local runtime artifacts and should not b
 - `gutvibe_patients.db-wal`
 - `patients_data.csv`
 - `patient_reports/`
+- `face_scans/`
 - `__pycache__/`
 - virtual environments such as `.venv/`
 - local Streamlit secrets such as `.streamlit/secrets.toml`

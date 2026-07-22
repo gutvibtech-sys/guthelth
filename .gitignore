@@ -23,6 +23,7 @@ ENV/
 # Streamlit/runtime artifacts
 patients_data.csv
 patient_reports/
+face_scans/
 *.zip
 
 # OS/editor files
