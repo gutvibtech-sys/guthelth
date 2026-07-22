@@ -30,6 +30,13 @@ from doctor_referral import (
     render_doctor_dashboard,
     render_hospital_admin_dashboard,
 )
+from whatsapp_crm import (
+    SUPPORTED_LANGUAGES,
+    SandboxMessagingProvider,
+    render_crm_dashboard,
+    send_assessment_package,
+    upsert_contact,
+)
 
 # ─── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -635,7 +642,7 @@ st.sidebar.markdown("""
 
 page = st.sidebar.radio(
     "Navigation",
-    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🔍 View / Search", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
+    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🔍 View / Search", "💬 WhatsApp CRM", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -753,6 +760,12 @@ elif page == "📋 Add Patient":
             present_address = st.text_area("Present Address", height=70)
             permanent_address = st.text_area("Permanent Address", height=70)
 
+        st.markdown("<div class='section-header'>💬 WhatsApp Follow-up</div>", unsafe_allow_html=True)
+        w1, w2, w3 = st.columns(3)
+        with w1: whatsapp_mobile = st.text_input("WhatsApp mobile", placeholder="Country code + number")
+        with w2: whatsapp_language = st.selectbox("WhatsApp language", SUPPORTED_LANGUAGES)
+        with w3: whatsapp_opt_in = st.checkbox("Patient opts in to WhatsApp wellness messages")
+
         # ── Body Metrics ──
         st.markdown("<div class='section-header'>⚖️ Body Metrics</div>", unsafe_allow_html=True)
         c1, c2, c3, c4, c5 = st.columns(5)
@@ -800,6 +813,7 @@ elif page == "📋 Add Patient":
                 "dob":               str(dob),
                 "age":               calculate_age(str(dob)),
                 "gender":            gender,
+                "mobile":            whatsapp_mobile.strip(),
                 "address":           present_address,
                 "present_address":   present_address,
                 "permanent_address": permanent_address,
@@ -830,6 +844,17 @@ elif page == "📋 Add Patient":
             pdf_path = os.path.join(PDF_FOLDER, f"{new_id}_{name.replace(' ','_')}.pdf")
             with open(pdf_path, "wb") as f:
                 f.write(pdf_bytes)
+
+            if whatsapp_opt_in and whatsapp_mobile.strip():
+                upsert_contact(new_id, whatsapp_mobile.strip(), whatsapp_language, opt_in=True,
+                               kiosk_session_id=f"kiosk-{new_id}")
+                public_base = os.getenv("GUTVIBE_PUBLIC_URL", "https://reports.gutvibe.example")
+                send_assessment_package(
+                    record,
+                    SandboxMessagingProvider(),
+                    f"{public_base}/reports/{new_id}.pdf",
+                    f"{public_base}/reports/{new_id}/qr",
+                )
 
             st.success(f"✅ Patient **{name}** saved with ID **{new_id}**!")
 
@@ -1091,6 +1116,9 @@ elif page == "🔍 View / Search":
 # ═══════════════════════════════════════════════════════════════════════════════
 elif page == "🩺 Doctor Dashboard":
     render_doctor_dashboard()
+
+elif page == "💬 WhatsApp CRM":
+    render_crm_dashboard()
 
 elif page == "🏥 Hospital Admin":
     render_hospital_admin_dashboard()

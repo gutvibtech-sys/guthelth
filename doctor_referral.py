@@ -184,6 +184,10 @@ def create_consultation_request(patient: dict[str, Any], hospital: dict[str, Any
             (request_id, patient["patient_id"], hospital["hospital_id"], doctor["doctor_id"], doctor["specialty"], doctor["fee"], "payment_placeholder_authorized", consent_status, "requested", _utc_now(), "modular_placeholder", json.dumps(payload, sort_keys=True)),
         )
         conn.commit()
+    doctor_phone = os.getenv(f"GUTVIBE_DOCTOR_PHONE_{doctor['doctor_id']}", "")
+    if doctor_phone:
+        from whatsapp_crm import SandboxMessagingProvider, notify_doctor_referral
+        notify_doctor_referral(patient["patient_id"], doctor_phone, request_id, SandboxMessagingProvider())
     return request_id
 
 
@@ -240,6 +244,15 @@ def render_doctor_dashboard() -> None:
                 conn.execute("UPDATE consultation_requests SET doctor_notes = ?, recommended_lab_tests = ?, hospital_referral = ?, request_status = ? WHERE request_id = ?", (notes, tests, referral, status, selected))
                 conn.commit()
             st.success("Doctor review saved.")
+    with st.expander("💬 Send WhatsApp follow-up to patient"):
+        doctor_message = st.text_area("Follow-up message", key=f"doctor_whatsapp_{selected}")
+        if st.button("Send doctor follow-up", key=f"send_doctor_whatsapp_{selected}", disabled=not doctor_message.strip()):
+            from whatsapp_crm import SandboxMessagingProvider, send_patient_message
+            try:
+                send_patient_message(row["patient_id"], doctor_message, "doctor_followup", SandboxMessagingProvider(), metadata={"request_id": selected, "doctor_id": row["doctor_id"]})
+                st.success("Doctor follow-up sent and added to communication history.")
+            except PermissionError as exc:
+                st.warning(str(exc))
 
 
 def render_hospital_admin_dashboard() -> None:
