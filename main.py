@@ -21,6 +21,11 @@ from reportlab.platypus import (
     HRFlowable, Image as RLImage
 )
 
+from skin_color_analysis import (
+    analyze_and_store_skin_color,
+    load_latest_skin_color_measurements,
+)
+
 # ─── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Patient Health Report System",
@@ -190,6 +195,29 @@ def save_face_scan(patient_id, image_bytes, face_count):
         conn.commit()
     return scan_id, image_path, captured_at
 
+
+
+def get_latest_face_scan(patient_id):
+    """Return the latest captured face scan metadata for a patient."""
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT scan_id, image_path, captured_at, face_count
+            FROM face_scans
+            WHERE patient_id = ?
+            ORDER BY captured_at DESC
+            LIMIT 1
+            """,
+            (patient_id,),
+        ).fetchone()
+    if row is None:
+        return None
+    return {
+        "scan_id": row[0],
+        "image_path": row[1],
+        "captured_at": row[2],
+        "face_count": row[3],
+    }
 
 def normalize_record(record):
     normalized = {column: str(record.get(column, "") or "") for column in COLUMNS}
@@ -602,7 +630,7 @@ st.sidebar.markdown("""
 
 page = st.sidebar.radio(
     "Navigation",
-    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🔍 View / Search", "📊 Analytics", "📁 All Reports"],
+    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🔍 View / Search", "📊 Analytics", "📁 All Reports"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -877,6 +905,96 @@ elif page == "📷 Face Scan":
                     st.caption(f"Stored securely at {image_path} on {captured_at}.")
             except (RuntimeError, ValueError) as exc:
                 st.error(str(exc))
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAGE 4 — SKIN & COLOR ANALYSIS
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "🎨 Skin & Color Analysis":
+    st.markdown("""
+    <div class='main-header'>
+        <h1>🎨 Skin & Color Analysis</h1>
+        <p>Numerical, non-diagnostic skin color measurements from the latest captured face image only</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    df = load_data()
+    if df.empty:
+        st.info("No patient records yet. Register or add a patient before running analysis.")
+        st.stop()
+
+    st.markdown("<div class='privacy-note'>🔒 This analysis uses only the selected patient's stored face scan and reports numerical measurements and charts only. It does not diagnose disease or medical conditions.</div>", unsafe_allow_html=True)
+
+    patient_labels = df.apply(lambda r: f"{r['patient_id']} — {r['name']} ({r['date']})", axis=1).tolist()
+    selected_patient = st.selectbox("Select patient", patient_labels, key="skin_color_patient")
+    selected_index = patient_labels.index(selected_patient)
+    patient_row = df.iloc[selected_index].to_dict()
+    patient_id = patient_row["patient_id"]
+
+    latest_scan = get_latest_face_scan(patient_id)
+    if latest_scan is None:
+        st.info("No captured face scan is available for this patient. Capture and save a face scan first.")
+        st.stop()
+
+    st.dataframe(
+        pd.DataFrame([{
+            "patient_id": patient_id,
+            "scan_id": latest_scan["scan_id"],
+            "captured_at": latest_scan["captured_at"],
+            "face_count": latest_scan["face_count"],
+        }]),
+        use_container_width=True,
+        hide_index=True,
+    )
+
+    if st.button("📊 Analyze Latest Captured Face Scan", use_container_width=True):
+        try:
+            with open(latest_scan["image_path"], "rb") as image_file:
+                image_bytes = image_file.read()
+            measurement_id, analysis = analyze_and_store_skin_color(
+                patient_id=patient_id,
+                image_bytes=image_bytes,
+                scan_id=latest_scan["scan_id"],
+            )
+            st.success(f"✅ Skin and color measurements saved. Measurement ID: {measurement_id}")
+            st.session_state[f"skin_color_latest_{patient_id}"] = {
+                "measurement_id": measurement_id,
+                "scan_id": latest_scan["scan_id"],
+                "analyzed_at": "just now",
+                "measurements": analysis.measurements.__dict__,
+                "analysis_note": analysis.analysis_note,
+            }
+        except (OSError, RuntimeError, ValueError) as exc:
+            st.error(str(exc))
+
+    result = st.session_state.get(f"skin_color_latest_{patient_id}") or load_latest_skin_color_measurements(patient_id)
+    if result:
+        measurements = result["measurements"]
+        st.markdown("### Numerical Measurements")
+        metrics_df = pd.DataFrame([
+            {"Measurement": key, "Value": value}
+            for key, value in measurements.items()
+            if isinstance(value, (int, float))
+        ])
+        st.dataframe(metrics_df, use_container_width=True, hide_index=True)
+
+        chart_df = metrics_df.set_index("Measurement")
+        st.markdown("### Measurement Chart")
+        st.bar_chart(chart_df)
+
+        st.markdown("### Overall Skin Tone Channels")
+        tone_df = pd.DataFrame({
+            "Channel": ["L*", "a*", "b*", "R", "G", "B"],
+            "Value": [
+                measurements.get("overall_skin_tone_l"),
+                measurements.get("overall_skin_tone_a"),
+                measurements.get("overall_skin_tone_b"),
+                measurements.get("overall_skin_rgb_r"),
+                measurements.get("overall_skin_rgb_g"),
+                measurements.get("overall_skin_rgb_b"),
+            ],
+        }).set_index("Channel")
+        st.bar_chart(tone_df)
+        st.caption(result["analysis_note"])
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 4 — VIEW / SEARCH
