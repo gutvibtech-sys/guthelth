@@ -106,6 +106,10 @@ python -m py_compile main.py
 streamlit run main.py
 ```
 
+## Architecture documentation
+
+- [Phase 4: GutVibe AI Wellness Kiosk Architecture](docs/architecture/phase-4-ai-wellness-kiosk.md) — production-ready software architecture covering multilingual AI assistant flow, consent, registration, measurements, future modules, reporting, admin dashboards, UML diagrams, database schema, API structure, and screen flow.
+
 ## Legal documents
 
 Legal documents are stored under `docs/legal/`:
