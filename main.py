@@ -1,6 +1,8 @@
 import io
 import json
 import os
+import re
+import sqlite3
 from datetime import date, datetime
 
 import pandas as pd
@@ -44,6 +46,21 @@ st.markdown("""
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         border-left: 4px solid #1565c0;
     }
+    .registration-card {
+        background: #ffffff;
+        border: 1px solid #dce6f8;
+        border-radius: 14px;
+        box-shadow: 0 6px 18px rgba(13,71,161,0.10);
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+    }
+    .privacy-note {
+        background: #e8f5e9;
+        border-left: 5px solid #2e7d32;
+        border-radius: 8px;
+        padding: 0.9rem 1rem;
+        color: #1b5e20;
+    }
     .section-header {
         color: #1a237e;
         font-size: 1.2rem;
@@ -69,46 +86,127 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Data Storage (CSV) ───────────────────────────────────────────────────────
-DATA_FILE = "patients_data.csv"
+# ─── Secure Data Storage (SQLite) ─────────────────────────────────────────────
+LEGACY_DATA_FILE = "patients_data.csv"
+DATABASE_FILE = "gutvibe_patients.db"
 PDF_FOLDER = "patient_reports"
 os.makedirs(PDF_FOLDER, exist_ok=True)
 
 COLUMNS = [
-    "patient_id","date","name","dob","gender",
-    "present_address","permanent_address",
-    "height","weight","bmi","body_fat_pct",
-    "hba1c","cholesterol","ldl","hdl","triglycerides",
-    "vitamin_d","vitamin_b12","gut_health_score",
-    "biological_age","icmr_risk_score","hrv",
-    "sleep_score","circadian_score"
+    "patient_id", "date", "name", "dob", "age", "gender",
+    "mobile", "email", "address", "gps_latitude", "gps_longitude",
+    "present_address", "permanent_address",
+    "height", "weight", "bmi", "body_fat_pct",
+    "hba1c", "cholesterol", "ldl", "hdl", "triglycerides",
+    "vitamin_d", "vitamin_b12", "gut_health_score",
+    "biological_age", "icmr_risk_score", "hrv",
+    "sleep_score", "circadian_score"
 ]
 
+TEXT_COLUMNS = ", ".join(f"{column} TEXT" for column in COLUMNS)
+
+
+def secure_database_file():
+    """Create the database file with owner-only permissions where supported."""
+    if os.path.exists(DATABASE_FILE):
+        os.chmod(DATABASE_FILE, 0o600)
+        return
+    open(DATABASE_FILE, "a", encoding="utf-8").close()
+    os.chmod(DATABASE_FILE, 0o600)
+
+
+def get_connection():
+    secure_database_file()
+    conn = sqlite3.connect(DATABASE_FILE)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute(f"CREATE TABLE IF NOT EXISTS patients ({TEXT_COLUMNS}, PRIMARY KEY(patient_id))")
+    existing = {row[1] for row in conn.execute("PRAGMA table_info(patients)")}
+    for column in COLUMNS:
+        if column not in existing:
+            conn.execute(f"ALTER TABLE patients ADD COLUMN {column} TEXT")
+    conn.commit()
+    return conn
+
+
+def normalize_record(record):
+    normalized = {column: str(record.get(column, "") or "") for column in COLUMNS}
+    if not normalized["address"]:
+        normalized["address"] = normalized.get("present_address", "")
+    if not normalized["present_address"]:
+        normalized["present_address"] = normalized.get("address", "")
+    if not normalized["age"] and normalized["dob"]:
+        normalized["age"] = str(calculate_age(normalized["dob"]))
+    return normalized
+
+
+def migrate_legacy_csv():
+    if not os.path.exists(LEGACY_DATA_FILE):
+        return
+    df = pd.read_csv(LEGACY_DATA_FILE, dtype=str).fillna("")
+    if df.empty:
+        return
+    with get_connection() as conn:
+        existing = {row[0] for row in conn.execute("SELECT patient_id FROM patients")}
+        for _, row in df.iterrows():
+            record = normalize_record(row.to_dict())
+            if record["patient_id"] and record["patient_id"] not in existing:
+                insert_patient(record, conn=conn)
+                existing.add(record["patient_id"])
+
+
 def load_data():
-    if os.path.exists(DATA_FILE):
-        df = pd.read_csv(DATA_FILE, dtype=str)
-        for c in COLUMNS:
-            if c not in df.columns:
-                df[c] = ""
-        return df[COLUMNS]
-    return pd.DataFrame(columns=COLUMNS)
+    with get_connection() as conn:
+        df = pd.read_sql_query("SELECT * FROM patients ORDER BY patient_id", conn, dtype=str)
+    for c in COLUMNS:
+        if c not in df.columns:
+            df[c] = ""
+    return df[COLUMNS]
+
+
+def insert_patient(record, conn=None):
+    record = normalize_record(record)
+    placeholders = ", ".join("?" for _ in COLUMNS)
+    columns = ", ".join(COLUMNS)
+    values = [record[column] for column in COLUMNS]
+    close_conn = conn is None
+    conn = conn or get_connection()
+    conn.execute(f"INSERT OR REPLACE INTO patients ({columns}) VALUES ({placeholders})", values)
+    conn.commit()
+    if close_conn:
+        conn.close()
+
 
 def save_data(df):
-    df.to_csv(DATA_FILE, index=False)
+    with get_connection() as conn:
+        conn.execute("DELETE FROM patients")
+        for _, row in df.fillna("").iterrows():
+            insert_patient(row.to_dict(), conn=conn)
+
+
+def calculate_age(dob_value):
+    try:
+        birth_date = datetime.strptime(str(dob_value), "%Y-%m-%d").date()
+    except Exception:
+        return ""
+    today = date.today()
+    return today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
 
 def generate_patient_id():
     df = load_data()
     if df.empty:
-        return "PAT-0001"
-    ids = df["patient_id"].dropna().tolist()
+        return "GV-PAT-0001"
     nums = []
-    for pid in ids:
-        try:
-            nums.append(int(pid.split("-")[1]))
-        except Exception:
-            pass
+    for pid in df["patient_id"].dropna().tolist():
+        match = re.search(r"(\d+)$", str(pid))
+        if match:
+            nums.append(int(match.group(1)))
     next_num = max(nums) + 1 if nums else 1
-    return f"PAT-{next_num:04d}"
+    return f"GV-PAT-{next_num:04d}"
+
+
+migrate_legacy_csv()
 
 # ─── Reference Ranges ─────────────────────────────────────────────────────────
 RANGES = {
@@ -222,9 +320,10 @@ def build_pdf(row: dict) -> bytes:
         age_str = row.get("dob","")
 
     info_data = [
-        ["Full Name",        row.get("name",""),       "Date of Birth",    age_str],
+        ["Full Name",        row.get("name",""),       "Date of Birth / Age",    f"{row.get('dob','')} / {row.get('age', age_str)}"],
         ["Gender",           row.get("gender",""),     "Report Date",      row.get("date","")],
-        ["Present Address",  row.get("present_address",""),  "Permanent Address", row.get("permanent_address","")],
+        ["Mobile",           row.get("mobile",""),     "Email",            row.get("email","")],
+        ["Address",          row.get("address", row.get("present_address","")),  "GPS", f"{row.get('gps_latitude','')}, {row.get('gps_longitude','')}"],
     ]
     info_table = Table(info_data, colWidths=[3.5*cm, 5.5*cm, 3.5*cm, 5.5*cm])
     info_table.setStyle(TableStyle([
@@ -441,7 +540,7 @@ st.sidebar.markdown("""
 
 page = st.sidebar.radio(
     "Navigation",
-    ["📋 Add Patient", "🔍 View / Search", "📊 Analytics", "📁 All Reports"],
+    ["🆕 Patient Registration", "📋 Add Patient", "🔍 View / Search", "📊 Analytics", "📁 All Reports"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -451,9 +550,89 @@ if not df_all.empty:
     st.sidebar.metric("Latest Entry", df_all.iloc[-1]["name"] if "name" in df_all.columns else "—")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE 1 — ADD PATIENT
+# PAGE 1 — PATIENT REGISTRATION
 # ═══════════════════════════════════════════════════════════════════════════════
-if page == "📋 Add Patient":
+if page == "🆕 Patient Registration":
+    st.markdown("""
+    <div class='main-header'>
+        <h1>🆕 GutVibe Patient Registration</h1>
+        <p>Register patient demographics, contact details, GPS location, and body metrics in the secure database</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    new_id = generate_patient_id()
+    st.markdown(f"<div class='registration-card'><h3>Auto-generated Patient ID: {new_id}</h3><p>This ID is reserved when the registration is saved.</p></div>", unsafe_allow_html=True)
+    st.markdown("<div class='privacy-note'>🔒 Records are stored in the local SQLite database with owner-only file permissions. Use approved deployment controls for production PHI handling.</div>", unsafe_allow_html=True)
+
+    with st.form("registration_form", clear_on_submit=False):
+        st.markdown("<div class='section-header'>👤 Identity & Contact</div>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            name = st.text_input("Full Name *", placeholder="Patient full name")
+            dob = st.date_input("Date of Birth *", min_value=date(1900, 1, 1), max_value=date.today(), key="registration_dob")
+            age = calculate_age(str(dob))
+            st.number_input("Age (auto-calculated)", value=int(age or 0), disabled=True)
+        with c2:
+            gender = st.selectbox("Gender *", ["Female", "Male", "Other", "Prefer not to say"], key="registration_gender")
+            mobile = st.text_input("Mobile *", placeholder="10-digit mobile number")
+            email = st.text_input("Email", placeholder="patient@example.com")
+        with c3:
+            registration_date = st.date_input("Registration Date *", value=date.today())
+            address = st.text_area("Address *", height=96, placeholder="Street, city, state, ZIP")
+
+        st.markdown("<div class='section-header'>📍 GPS Location</div>", unsafe_allow_html=True)
+        g1, g2 = st.columns(2)
+        with g1:
+            gps_latitude = st.number_input("Latitude", min_value=-90.0, max_value=90.0, value=0.0, step=0.000001, format="%.6f")
+        with g2:
+            gps_longitude = st.number_input("Longitude", min_value=-180.0, max_value=180.0, value=0.0, step=0.000001, format="%.6f")
+
+        st.markdown("<div class='section-header'>⚖️ Body Metrics</div>", unsafe_allow_html=True)
+        b1, b2, b3 = st.columns(3)
+        with b1:
+            height = st.number_input("Height (cm) *", 50.0, 250.0, 165.0, 0.1, key="registration_height")
+        with b2:
+            weight = st.number_input("Weight (kg) *", 10.0, 300.0, 65.0, 0.1, key="registration_weight")
+        with b3:
+            bmi = round(weight / ((height / 100) ** 2), 1) if height > 0 else 0.0
+            st.number_input("BMI (auto-calculated)", value=bmi, format="%.1f", disabled=True, key="registration_bmi")
+
+        registered = st.form_submit_button("🔐 Register Patient", use_container_width=True)
+
+    if registered:
+        mobile_clean = re.sub(r"\D", "", mobile)
+        if not name.strip() or not address.strip() or not mobile_clean:
+            st.error("Full name, mobile, and address are required.")
+        elif email and not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+            st.error("Please enter a valid email address or leave it blank.")
+        else:
+            record = {
+                "patient_id": new_id,
+                "date": str(registration_date),
+                "name": name.strip(),
+                "dob": str(dob),
+                "age": age,
+                "gender": gender,
+                "mobile": mobile.strip(),
+                "email": email.strip(),
+                "address": address.strip(),
+                "gps_latitude": f"{gps_latitude:.6f}",
+                "gps_longitude": f"{gps_longitude:.6f}",
+                "present_address": address.strip(),
+                "permanent_address": address.strip(),
+                "height": height,
+                "weight": weight,
+                "bmi": bmi,
+            }
+            insert_patient(record)
+            st.success(f"✅ Patient **{name.strip()}** registered securely with ID **{new_id}**.")
+            st.markdown("### Registration Summary")
+            st.dataframe(pd.DataFrame([normalize_record(record)])[ ["patient_id", "name", "dob", "age", "gender", "mobile", "email", "address", "gps_latitude", "gps_longitude", "height", "weight", "bmi"] ], use_container_width=True, hide_index=True)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAGE 2 — ADD PATIENT
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "📋 Add Patient":
     st.markdown("""
     <div class='main-header'>
         <h1>🏥 Patient Health Report System</h1>
@@ -524,7 +703,9 @@ if page == "📋 Add Patient":
                 "date":              str(report_date),
                 "name":              name.strip(),
                 "dob":               str(dob),
+                "age":               calculate_age(str(dob)),
                 "gender":            gender,
+                "address":           present_address,
                 "present_address":   present_address,
                 "permanent_address": permanent_address,
                 "height":            height,
@@ -546,10 +727,8 @@ if page == "📋 Add Patient":
                 "circadian_score":   circadian_score,
             }
 
-            # Save to CSV
-            df_all = load_data()
-            df_all = pd.concat([df_all, pd.DataFrame([record])], ignore_index=True)
-            save_data(df_all)
+            # Save to secure SQLite database
+            insert_patient(record)
 
             # Generate and save PDF
             pdf_bytes = build_pdf(record)
@@ -612,7 +791,7 @@ elif page == "🔍 View / Search":
 
     st.markdown(f"**{len(df_show)} record(s) found**")
     st.dataframe(
-        df_show[["patient_id","date","name","gender","bmi","hba1c","cholesterol","sleep_score","hrv"]],
+        df_show[["patient_id","date","name","age","gender","mobile","email","bmi","hba1c","cholesterol","sleep_score","hrv"]],
         use_container_width=True, hide_index=True
     )
 
@@ -650,7 +829,12 @@ elif page == "🔍 View / Search":
                 st.write("**Patient ID:**", row.get("patient_id"))
                 st.write("**Name:**",       row.get("name"))
                 st.write("**DOB:**",        row.get("dob"))
+                st.write("**Age:**",        row.get("age"))
                 st.write("**Gender:**",     row.get("gender"))
+                st.write("**Mobile:**",     row.get("mobile"))
+                st.write("**Email:**",      row.get("email"))
+                st.write("**Address:**",    row.get("address", row.get("present_address")))
+                st.write("**GPS:**",        f"{row.get('gps_latitude','')}, {row.get('gps_longitude','')}")
                 st.write("**Height:**",     row.get("height"), "cm")
                 st.write("**Weight:**",     row.get("weight"), "kg")
                 st.write("**BMI:**",        row.get("bmi"))

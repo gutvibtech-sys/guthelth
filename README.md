@@ -1,11 +1,12 @@
 # Patient Health Report System
 
-A Streamlit application for recording patient health metrics, generating PDF health reports, creating QR-code summaries, searching patient records, and reviewing simple population analytics.
+A Streamlit application for registering patients, recording patient health metrics, generating PDF health reports, creating QR-code summaries, searching patient records, and reviewing simple population analytics.
 
-> **Important:** This project currently stores patient information in local files. Treat it as a prototype unless you have added appropriate authentication, authorization, encryption, audit logging, retention controls, and compliance review for your deployment environment.
+> **Important:** This project stores patient information in a local SQLite database with owner-only file permissions where supported. Treat it as a prototype unless you have added appropriate authentication, authorization, encryption, audit logging, retention controls, and compliance review for your deployment environment.
 
 ## Features
 
+- Register patients with an auto-generated GutVibe Patient ID, demographics, contact details, address, GPS coordinates, height, weight, and auto-calculated BMI.
 - Add patient demographic, body metric, lab result, and wellness-score data.
 - Generate branded PDF reports with patient details, biomarker summaries, wellness metrics, and a QR-code summary.
 - Search existing records by patient name or patient ID.
@@ -30,7 +31,8 @@ guthelth/
 
 The application currently uses the following runtime paths:
 
-- `patients_data.csv` — local CSV data store created when records are saved.
+- `gutvibe_patients.db` — local SQLite database used for patient registration and records.
+- `patients_data.csv` — legacy local CSV data store imported automatically when present.
 - `patient_reports/` — local folder created by the app for generated PDF reports.
 
 Both paths can contain sensitive patient information and are intentionally ignored by Git.
@@ -71,7 +73,7 @@ This application handles personally identifiable information and health-related 
 
 - User authentication and role-based authorization.
 - Encryption at rest and in transit.
-- Secure database-backed persistence instead of plaintext CSV storage.
+- Production-grade database encryption/key management and managed backups beyond local SQLite file permissions.
 - Audit logging for record creation, viewing, updates, and exports.
 - Data retention and deletion policies.
 - Secure backups and recovery procedures.
@@ -81,6 +83,9 @@ This application handles personally identifiable information and health-related 
 
 The following files and directories are local runtime artifacts and should not be committed:
 
+- `gutvibe_patients.db`
+- `gutvibe_patients.db-shm`
+- `gutvibe_patients.db-wal`
 - `patients_data.csv`
 - `patient_reports/`
 - `__pycache__/`
