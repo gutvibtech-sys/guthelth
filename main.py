@@ -2,9 +2,12 @@ import io
 import json
 import os
 import re
+import uuid
 import sqlite3
 from datetime import date, datetime
 
+import cv2
+import numpy as np
 import pandas as pd
 import qrcode
 import streamlit as st
@@ -90,7 +93,10 @@ st.markdown("""
 LEGACY_DATA_FILE = "patients_data.csv"
 DATABASE_FILE = "gutvibe_patients.db"
 PDF_FOLDER = "patient_reports"
+FACE_SCAN_FOLDER = "face_scans"
 os.makedirs(PDF_FOLDER, exist_ok=True)
+os.makedirs(FACE_SCAN_FOLDER, exist_ok=True)
+os.chmod(FACE_SCAN_FOLDER, 0o700)
 
 COLUMNS = [
     "patient_id", "date", "name", "dob", "age", "gender",
@@ -121,12 +127,68 @@ def get_connection():
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.execute(f"CREATE TABLE IF NOT EXISTS patients ({TEXT_COLUMNS}, PRIMARY KEY(patient_id))")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS face_scans (
+            scan_id TEXT PRIMARY KEY,
+            patient_id TEXT NOT NULL,
+            image_path TEXT NOT NULL,
+            captured_at TEXT NOT NULL,
+            face_count INTEGER NOT NULL,
+            FOREIGN KEY(patient_id) REFERENCES patients(patient_id) ON DELETE CASCADE
+        )
+    """)
     existing = {row[1] for row in conn.execute("PRAGMA table_info(patients)")}
     for column in COLUMNS:
         if column not in existing:
             conn.execute(f"ALTER TABLE patients ADD COLUMN {column} TEXT")
     conn.commit()
     return conn
+
+
+def detect_face_count(image_bytes):
+    """Return the number of frontal faces detected in a captured image."""
+    image_array = np.frombuffer(image_bytes, dtype=np.uint8)
+    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+    if image is None:
+        raise ValueError("Unable to read the captured image. Please try again.")
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    cascade_path = os.path.join(cv2.data.haarcascades, "haarcascade_frontalface_default.xml")
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    if face_cascade.empty():
+        raise RuntimeError("Face detector could not be loaded.")
+
+    faces = face_cascade.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(60, 60),
+    )
+    return len(faces)
+
+
+def save_face_scan(patient_id, image_bytes, face_count):
+    """Persist a validated face image and link it to an existing patient."""
+    scan_id = str(uuid.uuid4())
+    captured_at = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+    safe_patient_id = re.sub(r"[^A-Za-z0-9_-]", "_", patient_id)
+    image_filename = f"{safe_patient_id}_{scan_id}.jpg"
+    image_path = os.path.join(FACE_SCAN_FOLDER, image_filename)
+
+    with open(image_path, "wb") as image_file:
+        image_file.write(image_bytes)
+    os.chmod(image_path, 0o600)
+
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO face_scans (scan_id, patient_id, image_path, captured_at, face_count)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (scan_id, patient_id, image_path, captured_at, face_count),
+        )
+        conn.commit()
+    return scan_id, image_path, captured_at
 
 
 def normalize_record(record):
@@ -540,7 +602,7 @@ st.sidebar.markdown("""
 
 page = st.sidebar.radio(
     "Navigation",
-    ["🆕 Patient Registration", "📋 Add Patient", "🔍 View / Search", "📊 Analytics", "📁 All Reports"],
+    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🔍 View / Search", "📊 Analytics", "📁 All Reports"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -771,7 +833,53 @@ elif page == "📋 Add Patient":
                 col.metric(label, f"{val} {unit}")
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PAGE 2 — VIEW / SEARCH
+# PAGE 3 — FACE SCAN CAPTURE
+# ═══════════════════════════════════════════════════════════════════════════════
+elif page == "📷 Face Scan":
+    st.markdown("""
+    <div class='main-header'>
+        <h1>📷 Face Scan Capture</h1>
+        <p>Capture and store one validated face image for the selected patient. AI analysis is not performed in this phase.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    df = load_data()
+    if df.empty:
+        st.info("No patient records yet. Register or add a patient before capturing a face scan.")
+        st.stop()
+
+    st.markdown("<div class='privacy-note'>🔒 Face images are saved to a local restricted folder and linked to the selected patient ID. No AI analysis is run.</div>", unsafe_allow_html=True)
+
+    patient_labels = df.apply(lambda r: f"{r['patient_id']} — {r['name']} ({r['date']})", axis=1).tolist()
+    selected_patient = st.selectbox("Select current patient", patient_labels)
+    selected_index = patient_labels.index(selected_patient)
+    patient_row = df.iloc[selected_index].to_dict()
+    patient_id = patient_row["patient_id"]
+
+    st.markdown("### Open device camera")
+    st.caption("Allow camera access in your browser, center exactly one face in the frame, then click Take Photo.")
+    captured_image = st.camera_input("Capture face image", key=f"face_capture_{patient_id}")
+
+    if captured_image is not None:
+        image_bytes = captured_image.getvalue()
+        st.image(image_bytes, caption="Captured face image preview", use_container_width=True)
+
+        if st.button("🔐 Validate and Save Face Scan", use_container_width=True):
+            try:
+                face_count = detect_face_count(image_bytes)
+                if face_count == 0:
+                    st.error("No face was detected. Please retake the photo with the patient's face clearly visible.")
+                elif face_count > 1:
+                    st.error("Multiple faces were detected. Please retake the photo with only the selected patient in frame.")
+                else:
+                    scan_id, image_path, captured_at = save_face_scan(patient_id, image_bytes, face_count)
+                    st.success(f"✅ Face scan saved for patient **{patient_id}**. Scan ID: **{scan_id}**")
+                    st.caption(f"Stored securely at {image_path} on {captured_at}.")
+            except (RuntimeError, ValueError) as exc:
+                st.error(str(exc))
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PAGE 4 — VIEW / SEARCH
 # ═══════════════════════════════════════════════════════════════════════════════
 elif page == "🔍 View / Search":
     st.markdown("<div class='main-header'><h1>🔍 Patient Records</h1><p>Search, view and download patient reports</p></div>", unsafe_allow_html=True)

@@ -1,4 +1,5 @@
 pandas
+opencv-python-headless
 qrcode[pil]
 reportlab
 streamlit
