@@ -116,3 +116,15 @@ Legal documents are stored under `docs/legal/`:
 
 - [`privacy-policy.pdf`](docs/legal/privacy-policy.pdf)
 - [`terms-and-conditions.pdf`](docs/legal/terms-and-conditions.pdf)
+
+## Phase 5: Doctor Referral & Telemedicine Integration
+
+The application now includes a modular doctor referral workflow in `doctor_referral.py`:
+
+- A **Consult a Doctor** follow-up action appears after a wellness report is generated or opened from patient search.
+- Patients can select a hospital, specialty, and available doctor.
+- A secure payment integration placeholder records consultation fee authorization without processing real payments.
+- Consultation requests capture patient ID, wellness report fields, face scan summary, height, weight, BMI, latest skin analysis summary, and consent status.
+- The **Doctor Dashboard** supports patient report review, consultation notes, recommended laboratory tests, and hospital referral notes.
+- The **Hospital Admin Dashboard** supports doctor directory management, appointment review, and consultation fee management.
+- Telemedicine routing is isolated behind placeholder metadata so eSanjeevani or other providers can be integrated without changing existing patient modules.
