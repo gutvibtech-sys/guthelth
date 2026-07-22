@@ -109,6 +109,7 @@ streamlit run main.py
 ## Architecture documentation
 
 - [Phase 4: GutVibe AI Wellness Kiosk Architecture](docs/architecture/phase-4-ai-wellness-kiosk.md) — production-ready software architecture covering multilingual AI assistant flow, consent, registration, measurements, future modules, reporting, admin dashboards, UML diagrams, database schema, API structure, and screen flow.
+- [Phase 6: AI Voice Assistant for GutVibe Wellness Kiosk](docs/architecture/phase-6-ai-voice-assistant.md) — standalone voice and touch assistant interfaces with Malayalam, English, Tamil, and Hindi prompts, automatic language detection hooks, and pluggable STT/TTS/conversation providers.
 
 ## Legal documents
 
@@ -128,3 +129,15 @@ The application now includes a modular doctor referral workflow in `doctor_refer
 - The **Doctor Dashboard** supports patient report review, consultation notes, recommended laboratory tests, and hospital referral notes.
 - The **Hospital Admin Dashboard** supports doctor directory management, appointment review, and consultation fee management.
 - Telemedicine routing is isolated behind placeholder metadata so eSanjeevani or other providers can be integrated without changing existing patient modules.
+
+
+## Phase 6: AI Voice Assistant for GutVibe Wellness Kiosk
+
+The new `voice_assistant.py` module adds a standalone, provider-agnostic conversation layer for kiosk deployments without modifying existing patient, analysis, report, or referral modules:
+
+- Automatically welcomes users when a presence event indicates they have approached the kiosk.
+- Supports Malayalam, English, Tamil, and Hindi prompts with automatic spoken-language detection hooks.
+- Provides voice and touch interaction paths through the same kiosk journey.
+- Guides users through consent, registration, face scan, height and weight measurement, wellness report preparation, doctor referral, and completion.
+- Defines modular Speech-to-Text, Text-to-Speech, and conversation provider interfaces so future AI vendors can be plugged in later.
+- Keeps conversation state separate from medical analysis data and stores only session/workflow metadata.
