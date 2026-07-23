@@ -1,6 +1,6 @@
 # Patient Health Report System
 
-A Streamlit application for registering patients, recording patient health metrics, generating PDF health reports, creating QR-code summaries, searching patient records, and reviewing simple population analytics. Phase 12 also supplies a modular security and compliance control plane for production integration.
+A Streamlit application for registering patients, recording patient health metrics, generating PDF health reports, creating QR-code summaries, searching patient records, and reviewing simple population analytics. Phase 13 adds a non-invasive platform evaluation, benchmarking, evidence reporting, and pilot-readiness framework.
 
 > **Important:** The current Streamlit routes remain a prototype and are not automatically protected by the Phase 12 library. Do not use real patient data until every route is integrated with authentication/authorization, encrypted fields, audit events, production KMS, TLS, monitored backup/retention jobs, and deployment-specific legal and security review.
 
@@ -27,6 +27,7 @@ guthelth/
 ├── wellness_scoring.py             # Transparent unified wellness scoring engine
 ├── hardware_manager.py             # Vendor-neutral kiosk hardware facade and storage
 ├── security_compliance.py          # Identity, RBAC, consent, crypto, audit and operations controls
+├── evaluation_suite.py             # Modular validation, benchmark, reporting and readiness framework
 ├── requirements.txt                # Python runtime dependencies
 ├── README.md                       # Project documentation
 ├── .gitignore                      # Local/runtime file exclusions
@@ -122,6 +123,27 @@ streamlit run main.py
 - [Phase 10: Food as Medicine Recommendation Engine](docs/architecture/phase-10-food-as-medicine.md) — regional food data, replaceable recommendation rules, nutrition planning, WhatsApp follow-ups, and audited clinician review.
 - [Phase 11: AI Wellness Kiosk Hardware Integration](docs/architecture/phase-11-hardware-integration.md) — replaceable device contracts, SQLite health/audit storage, diagnostics, calibration, and cross-platform adapter guidance.
 - [Phase 12: Security, Privacy, Consent and Compliance](docs/architecture/phase-12-security-compliance.md) — authentication/MFA hooks, deny-by-default RBAC, versioned consent, KMS-backed field encryption, hash-chained audit, retention, device registration, verified backup/restore, dashboard metrics and an India DPDP readiness map.
+- [Phase 13: Platform Evaluation and Validation](docs/architecture/phase-13-platform-evaluation.md) — probe contracts, end-to-end/hardware/security/AI validation, performance evidence, clinical review structures, reports, checklists and readiness scoring.
+
+## Phase 13: evaluation and pilot readiness
+
+`evaluation_suite.py` evaluates all platform modules through injected, side-effect-controlled
+probes. Unconfigured checks are explicitly marked `skipped` rather than inferred to pass.
+Results, validation runs, readiness snapshots, and performance metrics are stored in a
+separate SQLite database. The suite can generate an evaluation PDF, pilot-readiness
+Markdown report, validation/deployment checklists, and an optional Streamlit admin dashboard.
+
+```python
+from evaluation_suite import EvaluationStore, EvaluationSuite, PilotReadinessCalculator
+
+store = EvaluationStore("gutvibe_evaluation.db")
+suite = EvaluationSuite(store, {"Camera": lambda: camera.health().status == "online"})
+run_id, results = suite.run({"kiosk": "pilot-01", "build": "release-candidate"})
+readiness = PilotReadinessCalculator(store).calculate(run_id)
+```
+
+Production probes must use sandbox/test records and approved provider test modes. A score
+is deployment evidence—not clinical validation, certification, or regulatory approval.
 
 ## Phase 12: security and compliance framework
 
