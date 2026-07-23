@@ -43,6 +43,7 @@ from physiological_engine import (
     wellness_summary as physiological_wellness_summary,
 )
 from wellness_scoring import DISCLAIMER as WELLNESS_DISCLAIMER, WellnessScoringEngine
+from food_as_medicine import render_nutrition_dashboard
 
 # ─── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -129,7 +130,7 @@ COLUMNS = [
     "hba1c", "cholesterol", "ldl", "hdl", "triglycerides",
     "vitamin_d", "vitamin_b12", "gut_health_score",
     "biological_age", "icmr_risk_score", "hrv",
-    "sleep_score", "circadian_score"
+    "sleep_score", "circadian_score", "lifestyle_score", "activity_score", "nutrition_score"
 ]
 
 TEXT_COLUMNS = ", ".join(f"{column} TEXT" for column in COLUMNS)
@@ -661,7 +662,7 @@ st.sidebar.markdown("""
 
 page = st.sidebar.radio(
     "Navigation",
-    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🫀 Physiological Dashboard", "✨ Wellness Score", "🔍 View / Search", "💬 WhatsApp CRM", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
+    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🫀 Physiological Dashboard", "✨ Wellness Score", "🥗 Nutrition Plan", "🔍 View / Search", "💬 WhatsApp CRM", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -1192,6 +1193,16 @@ elif page == "✨ Wellness Score":
 # ═══════════════════════════════════════════════════════════════════════════════
 elif page == "🩺 Doctor Dashboard":
     render_doctor_dashboard()
+
+elif page == "🥗 Nutrition Plan":
+    st.markdown("<div class='main-header'><h1>🥗 Food as Medicine</h1><p>Personalized general wellness nutrition guidance</p></div>", unsafe_allow_html=True)
+    df = load_data()
+    if df.empty:
+        st.info("Register a patient before generating a nutrition plan.")
+    else:
+        labels = [f"{row['patient_id']} — {row.get('name', '')}" for _, row in df.iterrows()]
+        selected = st.selectbox("Select patient", labels, key="nutrition_patient")
+        render_nutrition_dashboard(df.iloc[labels.index(selected)]["patient_id"])
 
 elif page == "💬 WhatsApp CRM":
     render_crm_dashboard()

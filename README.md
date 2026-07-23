@@ -117,6 +117,7 @@ streamlit run main.py
 - [Phase 6: AI Voice Assistant for GutVibe Wellness Kiosk](docs/architecture/phase-6-ai-voice-assistant.md) — standalone voice and touch assistant interfaces with Malayalam, English, Tamil, and Hindi prompts, automatic language detection hooks, and pluggable STT/TTS/conversation providers.
 - [Phase 8: AI Physiological Signal Engine](docs/architecture/phase-8-physiological-signal-engine.md) — modular camera, Bluetooth, smart-watch, and sensor interfaces, persistence schema, dashboard, and safety boundaries.
 - [Phase 9: AI Wellness Scoring Engine](docs/architecture/phase-9-wellness-scoring-engine.md) — modular component rules, unified score, confidence, completeness, trend, transparent explanations, persistence, and safety boundaries.
+- [Phase 10: Food as Medicine Recommendation Engine](docs/architecture/phase-10-food-as-medicine.md) — regional food data, replaceable recommendation rules, nutrition planning, WhatsApp follow-ups, and audited clinician review.
 
 ## Legal documents
 
@@ -189,3 +190,16 @@ introduced independently.
 
 > **This is a Wellness Assessment and is NOT a Medical Diagnosis.** The score
 > never diagnoses or predicts disease and never replaces physician judgement.
+
+## Phase 10: Food as Medicine Recommendation Engine
+
+`food_as_medicine.py` turns available wellness, lifestyle, activity, nutrition,
+sleep, and physiological observations into broad food and routine guidance. It
+includes Kerala, South Indian, Indian, and international-placeholder food data;
+all nine requested recommendation categories; daily and weekly planning; a
+hydration tracker placeholder; consent-gated WhatsApp schedules; and clinician
+review, edit-note, and disable controls with audit history. Rules implement a
+small replaceable protocol so reviewed guidance or validated models can be added
+without redesigning storage and delivery.
+
+> **This is general wellness and nutrition guidance. It is NOT a medical prescription.**
