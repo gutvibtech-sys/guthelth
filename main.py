@@ -44,6 +44,7 @@ from physiological_engine import (
 )
 from wellness_scoring import DISCLAIMER as WELLNESS_DISCLAIMER, WellnessScoringEngine
 from food_as_medicine import render_nutrition_dashboard
+from hardware_manager import HardwareManager, HardwareStore, render_hardware_dashboard
 
 # ─── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -118,6 +119,7 @@ LEGACY_DATA_FILE = "patients_data.csv"
 DATABASE_FILE = "gutvibe_patients.db"
 PDF_FOLDER = "patient_reports"
 FACE_SCAN_FOLDER = "face_scans"
+hardware_manager = HardwareManager(HardwareStore(DATABASE_FILE))
 os.makedirs(PDF_FOLDER, exist_ok=True)
 os.makedirs(FACE_SCAN_FOLDER, exist_ok=True)
 os.chmod(FACE_SCAN_FOLDER, 0o700)
@@ -662,7 +664,7 @@ st.sidebar.markdown("""
 
 page = st.sidebar.radio(
     "Navigation",
-    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🫀 Physiological Dashboard", "✨ Wellness Score", "🥗 Nutrition Plan", "🔍 View / Search", "💬 WhatsApp CRM", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
+    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🫀 Physiological Dashboard", "✨ Wellness Score", "🥗 Nutrition Plan", "🔍 View / Search", "💬 WhatsApp CRM", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "🛠️ Hardware", "📊 Analytics", "📁 All Reports"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -1209,6 +1211,9 @@ elif page == "💬 WhatsApp CRM":
 
 elif page == "🏥 Hospital Admin":
     render_hospital_admin_dashboard()
+
+elif page == "🛠️ Hardware":
+    render_hardware_dashboard(hardware_manager)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PAGE 3 — ANALYTICS

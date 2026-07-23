@@ -25,6 +25,7 @@ guthelth/
 ├── main.py                         # Streamlit application entrypoint and current app logic
 ├── physiological_engine.py         # Extensible physiological signal providers and storage
 ├── wellness_scoring.py             # Transparent unified wellness scoring engine
+├── hardware_manager.py             # Vendor-neutral kiosk hardware facade and storage
 ├── requirements.txt                # Python runtime dependencies
 ├── README.md                       # Project documentation
 ├── .gitignore                      # Local/runtime file exclusions
@@ -118,6 +119,19 @@ streamlit run main.py
 - [Phase 8: AI Physiological Signal Engine](docs/architecture/phase-8-physiological-signal-engine.md) — modular camera, Bluetooth, smart-watch, and sensor interfaces, persistence schema, dashboard, and safety boundaries.
 - [Phase 9: AI Wellness Scoring Engine](docs/architecture/phase-9-wellness-scoring-engine.md) — modular component rules, unified score, confidence, completeness, trend, transparent explanations, persistence, and safety boundaries.
 - [Phase 10: Food as Medicine Recommendation Engine](docs/architecture/phase-10-food-as-medicine.md) — regional food data, replaceable recommendation rules, nutrition planning, WhatsApp follow-ups, and audited clinician review.
+- [Phase 11: AI Wellness Kiosk Hardware Integration](docs/architecture/phase-11-hardware-integration.md) — replaceable device contracts, SQLite health/audit storage, diagnostics, calibration, and cross-platform adapter guidance.
+
+## Phase 11: Kiosk hardware integration
+
+`hardware_manager.py` is the application-facing hardware boundary. Camera,
+height, weight, printer, QR, speaker, microphone, payment, and network vendors
+implement structural provider protocols and are registered at kiosk startup.
+Patient registration, face scan, wellness scoring, voice, WhatsApp, and nutrition
+features consume normalized manager results rather than vendor SDKs. The
+**Hardware** admin page shows inventory, required device health (including
+battery/UPS), last checks, calibration history, restart/diagnostic controls, and
+error logs. Payments are an interface-only placeholder and are deliberately
+blocked until a later, security-reviewed UPI phase.
 
 ## Legal documents
 
