@@ -1,8 +1,8 @@
 # Patient Health Report System
 
-A Streamlit application for registering patients, recording patient health metrics, generating PDF health reports, creating QR-code summaries, searching patient records, and reviewing simple population analytics.
+A Streamlit application for registering patients, recording patient health metrics, generating PDF health reports, creating QR-code summaries, searching patient records, and reviewing simple population analytics. Phase 12 also supplies a modular security and compliance control plane for production integration.
 
-> **Important:** This project stores patient information in a local SQLite database with owner-only file permissions where supported. Treat it as a prototype unless you have added appropriate authentication, authorization, encryption, audit logging, retention controls, and compliance review for your deployment environment.
+> **Important:** The current Streamlit routes remain a prototype and are not automatically protected by the Phase 12 library. Do not use real patient data until every route is integrated with authentication/authorization, encrypted fields, audit events, production KMS, TLS, monitored backup/retention jobs, and deployment-specific legal and security review.
 
 ## Features
 
@@ -26,6 +26,7 @@ guthelth/
 ├── physiological_engine.py         # Extensible physiological signal providers and storage
 ├── wellness_scoring.py             # Transparent unified wellness scoring engine
 ├── hardware_manager.py             # Vendor-neutral kiosk hardware facade and storage
+├── security_compliance.py          # Identity, RBAC, consent, crypto, audit and operations controls
 ├── requirements.txt                # Python runtime dependencies
 ├── README.md                       # Project documentation
 ├── .gitignore                      # Local/runtime file exclusions
@@ -120,6 +121,26 @@ streamlit run main.py
 - [Phase 9: AI Wellness Scoring Engine](docs/architecture/phase-9-wellness-scoring-engine.md) — modular component rules, unified score, confidence, completeness, trend, transparent explanations, persistence, and safety boundaries.
 - [Phase 10: Food as Medicine Recommendation Engine](docs/architecture/phase-10-food-as-medicine.md) — regional food data, replaceable recommendation rules, nutrition planning, WhatsApp follow-ups, and audited clinician review.
 - [Phase 11: AI Wellness Kiosk Hardware Integration](docs/architecture/phase-11-hardware-integration.md) — replaceable device contracts, SQLite health/audit storage, diagnostics, calibration, and cross-platform adapter guidance.
+- [Phase 12: Security, Privacy, Consent and Compliance](docs/architecture/phase-12-security-compliance.md) — authentication/MFA hooks, deny-by-default RBAC, versioned consent, KMS-backed field encryption, hash-chained audit, retention, device registration, verified backup/restore, dashboard metrics and an India DPDP readiness map.
+
+## Phase 12: security and compliance framework
+
+`security_compliance.py` is a UI-independent control plane with all six required
+roles, scrypt password storage, login lockout, MFA provider hooks, expiring
+sessions, consent withdrawal/re-consent history, authenticated field encryption,
+tamper-evident audit events, device registration, retention candidates, verified
+SQLite backup/restore and security dashboard metrics. `KeyProvider` and injected
+MFA verification keep cloud KMS/HSM and regional identity choices replaceable.
+
+For local development, generate an encryption key without committing it:
+
+```bash
+export GUTVIBE_DATA_KEY="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+```
+
+Read the Phase 12 architecture and runbook before integration. It explicitly
+documents what remains deployment work and provides a modular path for DPDP,
+HIPAA, GDPR and future regional policy packages without redesigning the core.
 
 ## Phase 11: Kiosk hardware integration
 
