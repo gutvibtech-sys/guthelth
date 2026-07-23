@@ -230,6 +230,8 @@ def render_consult_doctor_button(patient: dict[str, Any]) -> None:
 
 def render_doctor_dashboard() -> None:
     st.markdown("<div class='main-header'><h1>🩺 Doctor Dashboard</h1><p>Review patient reports, add notes, recommend tests, and refer to hospital care.</p></div>", unsafe_allow_html=True)
+    from food_as_medicine import render_clinician_recommendations
+    render_clinician_recommendations()
     consultations = load_consultations()
     if consultations.empty:
         st.info("No consultation requests yet.")
