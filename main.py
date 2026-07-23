@@ -37,6 +37,11 @@ from whatsapp_crm import (
     send_assessment_package,
     upsert_contact,
 )
+from physiological_engine import (
+    DISCLAIMER as PHYSIOLOGICAL_DISCLAIMER,
+    render_physiological_dashboard,
+    wellness_summary as physiological_wellness_summary,
+)
 
 # ─── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -592,6 +597,19 @@ def build_pdf(row: dict) -> bytes:
     story.append(w_table)
     story.append(Spacer(1, 16))
 
+    # ── Latest physiological wellness estimate ──
+    physiological = physiological_wellness_summary(str(row.get("patient_id", "")))
+    if physiological:
+        story.append(Paragraph("PHYSIOLOGICAL WELLNESS ESTIMATE", sec_style))
+        story.append(Paragraph(
+            f"Heart rate: {physiological.get('heart_rate_bpm', '—')} bpm; "
+            f"respiratory rate: {physiological.get('respiratory_rate_bpm', '—')} breaths/min; "
+            f"signal quality: {float(physiological.get('signal_quality', 0)):.0%}.",
+            small_style,
+        ))
+        story.append(Paragraph(PHYSIOLOGICAL_DISCLAIMER, small_style))
+        story.append(Spacer(1, 12))
+
     # ── QR Code ──
     qr_buf = generate_qr(row)
     qr_img = RLImage(qr_buf, width=3*cm, height=3*cm)
@@ -642,7 +660,7 @@ st.sidebar.markdown("""
 
 page = st.sidebar.radio(
     "Navigation",
-    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🔍 View / Search", "💬 WhatsApp CRM", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
+    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🫀 Physiological Dashboard", "🔍 View / Search", "💬 WhatsApp CRM", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -1110,6 +1128,16 @@ elif page == "🔍 View / Search":
 
         st.markdown("### Wellness Report Follow-up")
         render_consult_doctor_button(row)
+
+elif page == "🫀 Physiological Dashboard":
+    st.markdown("<div class='main-header'><h1>🫀 Physiological Dashboard</h1><p>Provider-neutral physiological wellness signal history</p></div>", unsafe_allow_html=True)
+    df = load_data()
+    if df.empty:
+        st.info("Register a patient before viewing physiological estimates.")
+    else:
+        labels = df.apply(lambda r: f"{r['patient_id']} — {r['name']}", axis=1).tolist()
+        selected = st.selectbox("Select patient", labels, key="physiological_patient")
+        render_physiological_dashboard(df.iloc[labels.index(selected)]["patient_id"])
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DOCTOR REFERRAL DASHBOARDS

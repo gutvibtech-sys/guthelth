@@ -14,12 +14,14 @@ A Streamlit application for registering patients, recording patient health metri
 - View population-level summary statistics.
 - Download all patient data as CSV.
 - Generate individual reports or a ZIP archive of all reports.
+- Review provider-neutral physiological wellness estimates and historical trends.
 
 ## Project structure
 
 ```text
 guthelth/
 ├── main.py                         # Streamlit application entrypoint and current app logic
+├── physiological_engine.py         # Extensible physiological signal providers and storage
 ├── requirements.txt                # Python runtime dependencies
 ├── README.md                       # Project documentation
 ├── .gitignore                      # Local/runtime file exclusions
@@ -110,6 +112,7 @@ streamlit run main.py
 
 - [Phase 4: GutVibe AI Wellness Kiosk Architecture](docs/architecture/phase-4-ai-wellness-kiosk.md) — production-ready software architecture covering multilingual AI assistant flow, consent, registration, measurements, future modules, reporting, admin dashboards, UML diagrams, database schema, API structure, and screen flow.
 - [Phase 6: AI Voice Assistant for GutVibe Wellness Kiosk](docs/architecture/phase-6-ai-voice-assistant.md) — standalone voice and touch assistant interfaces with Malayalam, English, Tamil, and Hindi prompts, automatic language detection hooks, and pluggable STT/TTS/conversation providers.
+- [Phase 8: AI Physiological Signal Engine](docs/architecture/phase-8-physiological-signal-engine.md) — modular camera, Bluetooth, smart-watch, and sensor interfaces, persistence schema, dashboard, and safety boundaries.
 
 ## Legal documents
 
@@ -154,3 +157,18 @@ The provider-neutral `whatsapp_crm.py` module adds consent-controlled WhatsApp e
 - Uses a `MessagingProvider` protocol; the default sandbox adapter performs no network calls and can be replaced by Meta, Twilio, or another approved provider.
 
 Set `GUTVIBE_PUBLIC_URL` to the public report service base URL. Doctor notification destinations can be configured with `GUTVIBE_DOCTOR_PHONE_<DOCTOR_ID>` (for example, `GUTVIBE_DOCTOR_PHONE_DOC-GV-001`). Production deployments must replace the sandbox provider, use approved WhatsApp templates where required, authenticate webhook events, and retain auditable consent.
+
+## Phase 8: AI Physiological Signal Engine
+
+`physiological_engine.py` adds data models for heart rate, respiratory rate,
+HRV, signal quality, biological age, and stress index. The last three wellness
+outputs are explicitly non-diagnostic placeholders. `SignalProvider` adapters
+keep extraction independent from SQLite persistence and the Streamlit UI;
+specialized interfaces are ready for future camera rPPG, Bluetooth devices,
+smart watches, and medical sensors. No camera algorithm is claimed or simulated.
+
+The Physiological Dashboard displays latest heart and respiratory rates, signal
+quality, wellness trends, and patient-scoped history. Latest estimates can also
+flow into wellness reports, consented doctor-referral payloads, and WhatsApp
+assessment summaries. All such output carries **“Wellness Estimate Only – Not a
+Medical Diagnosis.”**

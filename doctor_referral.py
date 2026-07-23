@@ -18,6 +18,7 @@ import pandas as pd
 import streamlit as st
 
 from skin_color_analysis import load_latest_skin_color_measurements
+from physiological_engine import wellness_summary as physiological_wellness_summary
 
 DATABASE_FILE = "gutvibe_patients.db"
 
@@ -165,6 +166,7 @@ def build_consultation_payload(patient: dict[str, Any], consent_status: str) -> 
         "weight": patient.get("weight", ""),
         "bmi": patient.get("bmi", ""),
         "skin_analysis_summary": _skin_summary(patient.get("patient_id", "")),
+        "physiological_wellness_estimate": physiological_wellness_summary(patient.get("patient_id", "")),
         "consent_status": consent_status,
     }
 
