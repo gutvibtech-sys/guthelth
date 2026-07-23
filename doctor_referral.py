@@ -157,6 +157,7 @@ def _skin_summary(patient_id: str) -> str:
 
 
 def build_consultation_payload(patient: dict[str, Any], consent_status: str) -> dict[str, Any]:
+    from wellness_scoring import assessment_summary
     wellness_report = {key: patient.get(key, "") for key in ["hba1c", "cholesterol", "ldl", "hdl", "triglycerides", "vitamin_d", "vitamin_b12", "gut_health_score", "icmr_risk_score", "hrv", "sleep_score", "circadian_score"]}
     return {
         "patient_id": patient.get("patient_id", ""),
@@ -167,6 +168,7 @@ def build_consultation_payload(patient: dict[str, Any], consent_status: str) -> 
         "bmi": patient.get("bmi", ""),
         "skin_analysis_summary": _skin_summary(patient.get("patient_id", "")),
         "physiological_wellness_estimate": physiological_wellness_summary(patient.get("patient_id", "")),
+        "unified_wellness_assessment": assessment_summary(patient.get("patient_id", "")),
         "consent_status": consent_status,
     }
 

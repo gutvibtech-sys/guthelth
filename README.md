@@ -15,6 +15,8 @@ A Streamlit application for registering patients, recording patient health metri
 - Download all patient data as CSV.
 - Generate individual reports or a ZIP archive of all reports.
 - Review provider-neutral physiological wellness estimates and historical trends.
+- Calculate a transparent, modular unified wellness score with confidence,
+  completeness, history, component explanations, and general wellness suggestions.
 
 ## Project structure
 
@@ -22,6 +24,7 @@ A Streamlit application for registering patients, recording patient health metri
 guthelth/
 ├── main.py                         # Streamlit application entrypoint and current app logic
 ├── physiological_engine.py         # Extensible physiological signal providers and storage
+├── wellness_scoring.py             # Transparent unified wellness scoring engine
 ├── requirements.txt                # Python runtime dependencies
 ├── README.md                       # Project documentation
 ├── .gitignore                      # Local/runtime file exclusions
@@ -113,6 +116,7 @@ streamlit run main.py
 - [Phase 4: GutVibe AI Wellness Kiosk Architecture](docs/architecture/phase-4-ai-wellness-kiosk.md) — production-ready software architecture covering multilingual AI assistant flow, consent, registration, measurements, future modules, reporting, admin dashboards, UML diagrams, database schema, API structure, and screen flow.
 - [Phase 6: AI Voice Assistant for GutVibe Wellness Kiosk](docs/architecture/phase-6-ai-voice-assistant.md) — standalone voice and touch assistant interfaces with Malayalam, English, Tamil, and Hindi prompts, automatic language detection hooks, and pluggable STT/TTS/conversation providers.
 - [Phase 8: AI Physiological Signal Engine](docs/architecture/phase-8-physiological-signal-engine.md) — modular camera, Bluetooth, smart-watch, and sensor interfaces, persistence schema, dashboard, and safety boundaries.
+- [Phase 9: AI Wellness Scoring Engine](docs/architecture/phase-9-wellness-scoring-engine.md) — modular component rules, unified score, confidence, completeness, trend, transparent explanations, persistence, and safety boundaries.
 
 ## Legal documents
 
@@ -172,3 +176,16 @@ quality, wellness trends, and patient-scoped history. Latest estimates can also
 flow into wellness reports, consented doctor-referral payloads, and WhatsApp
 assessment summaries. All such output carries **“Wellness Estimate Only – Not a
 Medical Diagnosis.”**
+
+## Phase 9: AI Wellness Scoring Engine
+
+`wellness_scoring.py` combines available face, landmark, skin, physiological,
+lifestyle, nutrition, activity, and sleep observations. Missing components are
+shown rather than silently scored, and available weights are renormalized. The
+dashboard explains every rule and shows the overall score, confidence, data
+completeness, historical trend, component scores, and general improvement areas.
+All rules implement small replaceable adapters so future validated models can be
+introduced independently.
+
+> **This is a Wellness Assessment and is NOT a Medical Diagnosis.** The score
+> never diagnoses or predicts disease and never replaces physician judgement.
