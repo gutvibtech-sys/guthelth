@@ -42,6 +42,7 @@ from physiological_engine import (
     render_physiological_dashboard,
     wellness_summary as physiological_wellness_summary,
 )
+from wellness_scoring import DISCLAIMER as WELLNESS_DISCLAIMER, WellnessScoringEngine
 
 # ─── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -660,7 +661,7 @@ st.sidebar.markdown("""
 
 page = st.sidebar.radio(
     "Navigation",
-    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🫀 Physiological Dashboard", "🔍 View / Search", "💬 WhatsApp CRM", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
+    ["🆕 Patient Registration", "📋 Add Patient", "📷 Face Scan", "🎨 Skin & Color Analysis", "🫀 Physiological Dashboard", "✨ Wellness Score", "🔍 View / Search", "💬 WhatsApp CRM", "🩺 Doctor Dashboard", "🏥 Hospital Admin", "📊 Analytics", "📁 All Reports"],
     label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
@@ -745,6 +746,7 @@ if page == "🆕 Patient Registration":
                 "bmi": bmi,
             }
             insert_patient(record)
+            WellnessScoringEngine(DATABASE_FILE).assess(new_id)
             st.success(f"✅ Patient **{name.strip()}** registered securely with ID **{new_id}**.")
             st.markdown("### Registration Summary")
             st.dataframe(pd.DataFrame([normalize_record(record)])[ ["patient_id", "name", "dob", "age", "gender", "mobile", "email", "address", "gps_latitude", "gps_longitude", "height", "weight", "bmi"] ], use_container_width=True, hide_index=True)
@@ -856,6 +858,8 @@ elif page == "📋 Add Patient":
 
             # Save to secure SQLite database
             insert_patient(record)
+            # Create an initial transparent snapshot; missing modules remain visibly unscored.
+            WellnessScoringEngine(DATABASE_FILE).assess(new_id)
 
             # Generate and save PDF
             pdf_bytes = build_pdf(record)
@@ -952,6 +956,7 @@ elif page == "📷 Face Scan":
                     st.error("Multiple faces were detected. Please retake the photo with only the selected patient in frame.")
                 else:
                     scan_id, image_path, captured_at = save_face_scan(patient_id, image_bytes, face_count)
+                    WellnessScoringEngine(DATABASE_FILE).assess(patient_id)
                     st.success(f"✅ Face scan saved for patient **{patient_id}**. Scan ID: **{scan_id}**")
                     st.caption(f"Stored securely at {image_path} on {captured_at}.")
             except (RuntimeError, ValueError) as exc:
@@ -1006,6 +1011,7 @@ elif page == "🎨 Skin & Color Analysis":
                 image_bytes=image_bytes,
                 scan_id=latest_scan["scan_id"],
             )
+            WellnessScoringEngine(DATABASE_FILE).assess(patient_id)
             st.success(f"✅ Skin and color measurements saved. Measurement ID: {measurement_id}")
             st.session_state[f"skin_color_latest_{patient_id}"] = {
                 "measurement_id": measurement_id,
@@ -1138,6 +1144,48 @@ elif page == "🫀 Physiological Dashboard":
         labels = df.apply(lambda r: f"{r['patient_id']} — {r['name']}", axis=1).tolist()
         selected = st.selectbox("Select patient", labels, key="physiological_patient")
         render_physiological_dashboard(df.iloc[labels.index(selected)]["patient_id"])
+
+elif page == "✨ Wellness Score":
+    st.markdown("<div class='main-header'><h1>✨ GutVibe Wellness Score</h1><p>Transparent summary of available wellness observations</p></div>", unsafe_allow_html=True)
+    st.error(WELLNESS_DISCLAIMER)
+    df = load_data()
+    if df.empty:
+        st.info("Register a patient before creating a wellness assessment.")
+    else:
+        labels = df.apply(lambda r: f"{r['patient_id']} — {r['name']}", axis=1).tolist()
+        selected = st.selectbox("Select patient", labels, key="wellness_patient")
+        patient_id = df.iloc[labels.index(selected)]["patient_id"]
+        engine = WellnessScoringEngine(DATABASE_FILE)
+        if st.button("Calculate wellness score", type="primary"):
+            engine.assess(patient_id)
+            st.success("Wellness assessment calculated from currently available data.")
+        assessment = engine.latest(patient_id)
+        if assessment:
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("Overall Wellness", f"{assessment.overall_score:.1f}/100")
+            m2.metric("Confidence", f"{assessment.confidence_score:.1f}%")
+            m3.metric("Data Completeness", f"{assessment.data_completeness_score:.1f}%")
+            m4.metric("Trend", f"{assessment.trend_score:.1f}/100")
+            st.caption("Trend is neutral at 50 for a first assessment; subsequent values reflect change from the previous overall score.")
+            component_rows = [{"Component": c.name, "Score": c.score, "Configured weight": f"{c.weight:.0%}",
+                               "Confidence": f"{c.confidence:.0%}", "Source": c.source,
+                               "How this was calculated": c.explanation} for c in assessment.components]
+            st.subheader("Component scores and transparent contribution")
+            st.dataframe(pd.DataFrame(component_rows), use_container_width=True, hide_index=True)
+            st.subheader("Historical trend")
+            history = pd.DataFrame(engine.history(patient_id))
+            if len(history) > 1:
+                st.line_chart(history.set_index("assessed_at")[["overall_score"]])
+            else:
+                st.info("Calculate another assessment later to display a historical trend.")
+            st.subheader("General wellness improvement areas")
+            if assessment.suggestions:
+                for suggestion in assessment.suggestions: st.write(f"• {suggestion}")
+            else:
+                st.write("No component-specific suggestion was generated from the available information.")
+            st.warning("General wellness guidance only. A clinician's judgement always takes priority.")
+        else:
+            st.info("No unified assessment yet. Select Calculate wellness score to create one.")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # DOCTOR REFERRAL DASHBOARDS

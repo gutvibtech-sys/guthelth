@@ -138,8 +138,14 @@ def send_assessment_package(patient: dict[str, Any], provider: MessagingProvider
             f"{physiological.get('heart_rate_bpm', '—')} bpm, signal quality "
             f"{float(physiological.get('signal_quality', 0)):.0%}. {DISCLAIMER}"
         )
+    from wellness_scoring import assessment_summary
+    unified = assessment_summary(patient_id, database_file)
+    unified_text = ""
+    if unified:
+        unified_text = (f" Overall wellness score: {unified['overall_score']:.1f}/100 "
+                        f"(confidence {unified['confidence_score']:.1f}%). {unified['disclaimer']}")
     return [
-        send_patient_message(patient_id, f"Your GutVibe Wellness Report is ready. Gut health score: {score}/100.{physiological_text}", "wellness_report", provider, database_file=database_file),
+        send_patient_message(patient_id, f"Your GutVibe Wellness Report is ready. Gut health score: {score}/100.{physiological_text}{unified_text}", "wellness_report", provider, database_file=database_file),
         send_patient_message(patient_id, "Your detailed PDF Wellness Report is attached.", "pdf_report", provider, media_url=pdf_url, database_file=database_file),
         send_patient_message(patient_id, f"Download or share your report using this QR link: {qr_download_url}", "qr_download", provider, database_file=database_file),
     ]
