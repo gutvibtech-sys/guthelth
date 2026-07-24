@@ -4,4 +4,3 @@ opencv-python-headless
 qrcode[pil]
 reportlab
 streamlit
-streamlit-gps-location==1.2.2
